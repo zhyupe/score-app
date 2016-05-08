@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, width=device-width">
+    <title></title>
+
+    <link href="lib/ionic/css/ionic.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+
+    <!-- IF using Sass (run gulp sass first), then uncomment below and remove the CSS includes above
+    <link href="css/ionic.app.css" rel="stylesheet">
+    -->
+
+    <!-- ionic/angularjs js -->
+    <script src="lib/ionic/js/ionic.bundle.js"></script>
+
+    <!-- cordova script (this will be a 404 during development) -->
+    <script src="cordova.js"></script>
+
+    <!-- your app's js -->
+    <script src="js/sha256.js"></script>
+    <script src="js/app.js"></script>
+  </head>
+  <body ng-app="voteApp">
+    <ion-nav-view></ion-nav-view>
+    <script type="text/ng-template" id="index.html">
+      <div id="vote-wrap">
+        <div class="vote-side">
+          <div class="block vote-side-title">
+            <h2 ng-bind-html="live.name"></h2>
+          </div>
+          <div class="block" ng-repeat="p in live.procedure" ng-class="{'active': p.index == local.step}" ng-if="p.no != -1">
+            <h3>{{p.name}}</h3>
+          </div>
+          <div class="footer">
+            <p ng-show="local.user">欢迎您，{{local.user.nickname}} 老师</p>
+            <p>&copy; 2016 天津大学天外天工作室</p>
+          </div>
+        </div>
+        <div class="vote-main">
+          <div class="vertical">
+            <div class="wrap" ng-show="local.connected">
+              <div ng-show="votingList.length">
+                <div class="block player" ng-repeat="p in votingList" ng-hide="local.votingId && local.votingId != p.id" ng-click="showVote(p)">
+                  <img ng-src="{{p.photo | apiUrl}}">
+                  <h3>{{p.no}} 号</h3>
+                  <p class="score">{{p.score | printScore}}</p>
+                </div>
+              </div>
+              <div ng-hide="votingList.length" class="block">
+                <p>暂无需要评分的选手</p>
+              </div>
+              <div class="block vote-dialog" ng-show="local.votingId">
+                <a href="javascript:void(0)" class="ion-close-round" ng-click="local.votingId=0"></a>
+                <vote-control result="local.pendingScore"></vote-control>
+                <p><button class="button" ng-click="submitScore()">提交</button></p>
+              </div>
+            </div>
+            <div class="wrap" ng-hide="local.connected">
+              <div class="block" ng-hide="playList.length">
+                <p>此终端未连接到评分服务器</p>
+                <p><button class="button button-block button-balanced" ng-click="goReload()">尝试连接</button></p>
+                <p><button class="button button-block button-energized" ng-click="goLogin()">更改凭据</button></p>
+              </div>
+              <div class="block" ng-show="playList.length">
+                <p>请选择要连接到的比赛</p>
+                <p><a class="button button-block button-balanced" ng-repeat="p in playList" ng-click="loadPlay(p)">{{p.name}}</a></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="vote-history-cover" class="vote-history-cover" style="display:none; opacity: 0"></div>
+      <div id="vote-history" class="vote-history" style="left:100vw" ng-show="local.connected">
+        <a href="javascript:void(0)" id="vote-history-toggler" class="toggler ion-chevron-left"></a>
+        <div class="container">
+          <h3>评分记录</h3>
+          <div class="table-head table-row">
+            <div class="name">选手</div>
+            <div class="score">{{live.procedure[local.step].name}}</div>
+          </div>
+          <div class="table-body">
+            <div class="table-row" ng-repeat="p in historyList">
+              <div class="name">{{p.no}} 号</div>
+              <div class="score">{{p.score | printScore}}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </script>
+    <script type="text/ng-template" id="vote-control.html">
+      <div class="left">
+        <div class="circle" style="{{result.score | voteStyle: 1}}"></div>
+      </div>
+      <div class="right">
+        <div class="circle" style="{{result.score | voteStyle: 2}}"></div>
+      </div>
+      <div class="result">{{result.score | voteStyle: 0}}</div>
+      <div class="pointer" style="{{result.score | voteStyle: 3}}"><span class="ion-location"></span></div>
+    </script>
+    <script type="text/ng-template" id="login.html">
+      <ion-pane>
+        <ion-header-bar class="bar-dark">
+          <button class="button icon ion-chevron-left" ng-click="goIndex()"></button>
+          <h1 class="title">天外天投票</h1>
+        </ion-header-bar>
+
+        <ion-content>
+          <div ng-if="!token">
+            <p class="padding">此设备尚未导入凭证或凭证已过期。<br>请使用管理账号登录，以导入凭证。</p>
+            <form ng-submit="formSubmit()">
+              <div class="list">
+                <label class="item item-input item-floating-label">
+                  <span class="input-label">服务器</span>
+                  <input type="text" ng-model="login.server" placeholder="服务器">
+                </label>
+                <label class="item item-input item-floating-label">
+                  <span class="input-label">用户名</span>
+                  <input type="text" ng-model="login.username" placeholder="用户名">
+                </label>
+                <label class="item item-input item-floating-label">
+                  <span class="input-label">密码</span>
+                  <input type="password" ng-model="login.password" placeholder="密码">
+                </label>
+              </div>
+              <button class="button button-block button-dark">登录</button>
+            </form>
+          </div>
+          <div ng-if="token">
+            <p class="padding">请在下方点击相应的账号以导入凭证。<br>本机设备ID：{{deviceId}}</p>
+            <div class="card" ng-repeat="d in list" ng-click="acquireToken(d)">
+              <div class="item item-text-wrap">
+                <h2>{{d.nickname}}</h2>
+                <p>登录名：{{d.username}}</p>
+                <p><span ng-class="d.password == deviceId ? 'balanced' : ''">设备ID：{{d.password}}</span></p>
+              </div>
+            </div>
+          </div>
+        </ion-content>
+      </ion-pane>
+    </script>
+  </body>
+</html>
